@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ludo Dice Arm Details</title>
+  <link rel="stylesheet" href="style2.css">
+</head>
+
+  <body>
+  <div class="container">
+    <h1>Ludo Dice Arm: Detailed Overview</h1>
+    
+    <p class="objective">
+      Project Overview:
+    </p>
+
+    <p>
+     This project is hobbyist endevor, uses a ESP32 microcontroller to control 20 LEDs and driving them visually engaging patterns. This project demostrate two unique pattern
+    </p>
+    <p>
+      1. Passing Light Pattern: Each LED turn on sequentially after the current LED turn off. The effect create a wave like motion of light travelling from top to bottom and back from bottom to top.
+     </p>
+
+     <p>
+      2. Cascade Light Pattern: In this sequence from top to bottom each LED turn on. Then, once after all LEDs are one they begin to turn off one by one from bottom to top, creating a cascading visual effect.
+     </p>
+  
+    <p class="objective">
+      Components Used:
+    </p>
+
+    <p>
+        1. ESP32 Microcontroller:
+
+        The core component driving the LED patterns using its PWM-enabled GPIO pins.
+
+    </p>
+
+    <p>
+      2. 20 LEDs:
+
+      Arranged in a series to display the desired lighting patterns.
+
+    </p>
+
+    <p>
+      3. Resistors (if required):
+
+      Added to prevent excess current from damaging the LEDs.
+    </p>
+
+    <p class="objective">
+      Arduino Code for pattern2:
+    </p>
+
+  <pre>
+  <code>
+    const int ledPin[]= {26, 27, 25, 32, 13, 12, 14, 23, 22, 1, 3, 21, 19, 18, 5, 17, 16, 4, 0, 2};
+    const int numLeds = sizeof(ledPin) / sizeof(ledPin[0]);
+      // number of pins the count
+    int numOn = 0;
+    int onPin;
+    void setup() {
+      for(int i=0; i<numLeds; i++){
+        pinMode(ledPin[i], OUTPUT);
+        delay(100);
+        digitalWrite(ledPin[i], LOW);  //initially the pin are set to low
+      }
+    
+    }
+    
+    void Led(){
+      if(numOn!=numLeds)
+      {
+        digitalWrite(ledPin[numOn], HIGH);
+        numOn +=1;
+        delay(200);
+      }
+      else {
+        for(int i= numLeds-1; i>=0; i--)
+        {
+          digitalWrite(ledPin[i], LOW);
+          numOn -=1;
+          delay(200);
+        }
+      }
+      }
+    
+    void loop() {
+      Led();
+      // put your main code here, to run repeatedly:
+    
+    }    
+    
+    </code>
+    </pre>
+    <p class="objective">LED pattern 1:
+    </p>
+
+    <video src="ledPattern1.mp4" controls></video>
+    <p class="objective">LED pattern 2:
+    </p>
+    <video src="ledPattern2.mp4" controls></video>
+
+    <p class="objective">
+      Key Features:
+      <ul>
+        <li>Logic:
+
+          Two phases are implemented:
+          LEDs turn ON sequentially from top to bottom.
+          Once all LEDs are ON, they begin turning OFF in reverse order.</li>
+        <li> Extendable Design: Easily customizable to include more patterns, LEDs, or even IoT controls for remote operation.</li>
+        <li> Dynamic Lighting Effects: Displays smooth, programmable lighting patterns for decorative or functional purposes.</li>
+      </ul>
+
+    </p>
+
+    <a href="index.html">Back to Portfolio</a>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 My Portfolio. All Rights Reserved by Shubham Bisain.</p>
+  </footer>
+</body>
+</html>

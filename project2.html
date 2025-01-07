@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TempTrack Details</title>
+  <link rel="stylesheet" href="style2.css">
+</head>
+
+  <body>
+  <div class="container">
+    <h1>Soil Moisture detector: Detailed Overview</h1>
+    
+    <p class="objective">
+      Project Overview:
+    </p>
+
+    <p>
+      The Soil Moisture Detector is an innovative device design to measure the percentage of moisture present in the soil. It offers a real time display of the moisture present in the soil and level it using the seven segment LED display. By mapping the analog value from sensor 8 to 1024 as 0 to 9. Also, provide a visual threshold indicator via an LED, controlled through a potentiometer. This device is especially useful in agreecultural applications and home gardening, enabling precise monitoring of soil condition to optimize irrigation and conserve energy.
+      
+    </p>
+  
+    <p class="objective">
+      Components Used:
+    </p>
+
+    <p>
+        1. SEN 13322 Soil moisture Sensor: Measures the soil moisture level and outputs analog and digital signals. The analog pin provides a continuous moisture reading, while the digital pin indicates whether the moisture level has crossed the set threshold.
+
+
+    </p>
+
+    <p>
+      2. LM358 Operational Amplifier: Based on threshold set by the potentiometer. The LM358 Amp, serve as a comparator, converting analog readings into digital reading (either 0 or 1 as per the set threshold).
+    </p>
+
+    <p>
+        3. 10k Ohm Potentiometer: Allows the to adjust the moisture threshold sensitivity dynamically.
+    </p>
+
+    <p>
+      4. Red LED: Indicates whether the moisture level is above or below the set threshold, providing clear visual feedback.
+    </p>
+
+    <p>
+      5. 1k Ohm Pull-up Resistor: Stabilizes the soil moisture sensor's output,
+      330 Ohm Resistor for the LED: Limits current to prevent damage to the LED, and
+      Seven 330 Ohm Resistors: Protect each segment of the seven-segment display from overcurrent.
+    </p>
+
+    <p>
+      6. ESP8266 : Serve as a microcontroller, reading sensor data, processing the values, and controlling the seven-segment display.
+    </p>
+
+    <p>
+      7. Seven Segment display (common Anode): Displays the percentage of soil moisture (mapped to a scale of 0-9 for simplicity).
+    </p>
+
+    	  	
+    <p>
+      Percentage chart:
+
+    </p>
+    <p>
+      when the value on seven segment is 
+    </p>
+    <p>
+      0:> 0 % to 9%
+    </p>
+
+    <p>
+      1:> 10 % to 19 %
+    </p>
+
+    <p>
+      2:> 20 % to 29 %
+    </p>
+
+    <p>
+      3:> 30 % to 39 %
+    </p>
+
+    <p>
+      4:> 40 % to 49 %
+    </p>
+
+    <p>
+      5:> 50 % to 59 %
+    </p>
+
+    <p>
+      6:> 60 % to 69 %
+    </p>
+
+    <p>
+      7:> 70 % to 79 %
+    </p>
+
+    <p>
+      8:> 80 % to 89 %
+    </p>
+
+    <p>
+      9:> 90 % to 99 %
+    </p>
+
+    <p class="objective">
+      Arduino Code:
+    </p>
+
+    <pre>
+<code>
+//Analog data from Soil Moisture sensor
+#define sig_A A0 
+//Digital data from LM358 to define the threshold
+#define sig_D D1
+
+// 7-segment pin definitions
+#define SEG_A D2
+#define SEG_B D3
+#define SEG_C D4
+#define SEG_D D8
+#define SEG_E D7
+#define SEG_F D6
+#define SEG_G D5
+
+const int minS= 8; //min analog value for mapping
+const int maxS= 1024;  //max analog value for mapping
+
+// Segment patterns for numbers 0-9 (common anode)
+// 1 means OFF, 0 means ON for common anode
+
+const int numbers[10][7] = {
+  {0, 0, 0, 0, 0, 0, 1}, // 0
+  {1, 0, 0, 1, 1, 1, 1}, // 1
+  {0, 0, 1, 0, 0, 1, 0}, // 2
+  {0, 0, 0, 0, 1, 1, 0}, // 3
+  {1, 0, 0, 1, 1, 0, 0}, // 4
+  {0, 1, 0, 0, 1, 0, 0}, // 5
+  {0, 1, 0, 0, 0, 0, 0}, // 6
+  {0, 0, 0, 1, 1, 1, 1}, // 7
+  {0, 0, 0, 0, 0, 0, 0}, // 8
+  {0, 0, 0, 0, 1, 0, 0}  // 9
+};
+
+
+void setup() {
+  Serial.begin(9600);
+
+  // Set all segment pins as output
+  pinMode(SEG_A, OUTPUT);
+  pinMode(SEG_B, OUTPUT);
+  pinMode(SEG_C, OUTPUT);
+  pinMode(SEG_D, OUTPUT);
+  pinMode(SEG_E, OUTPUT);
+  pinMode(SEG_F, OUTPUT);
+  pinMode(SEG_G, OUTPUT);
+  pinMode(sig_D, INPUT);
+  pinMode(sig_A, INPUT);
+
+}
+
+void loop() {
+  
+  int x1= analogRead(sig_A);
+  int y1= digitalRead(sig_D);
+
+  // mapping analogv value from 8 to 1024 as in 0-9 for 7-segment display
+  int percentage = map(x1, minS, maxS, 0, 9);
+   Serial.println();
+  Serial.print("Percentage ");
+  Serial.println(percentage);   //print percentage in serial monitor
+ 
+  if(y1==1){
+    displayNumber(percentage);
+    delay(2000);
+  }
+  else
+  clearDisplay();
+
+  Serial.println();
+  Serial.print("Analog Reading from sensor: ");
+  Serial.println(x1);
+  Serial.print("Digital Read frpm sensor: ");
+  Serial.println(y1);
+  delay(1000);
+}
+
+// Function to display a number on the 7-segment display
+void displayNumber(int num) {
+  digitalWrite(SEG_A, numbers[num][0]);
+  digitalWrite(SEG_B, numbers[num][1]);
+  digitalWrite(SEG_C, numbers[num][2]);
+  digitalWrite(SEG_D, numbers[num][3]);
+  digitalWrite(SEG_E, numbers[num][4]);
+  digitalWrite(SEG_F, numbers[num][5]);
+  digitalWrite(SEG_G, numbers[num][6]);
+}
+void clearDisplay() {
+  digitalWrite(SEG_A, HIGH);
+  digitalWrite(SEG_B, HIGH);
+  digitalWrite(SEG_C, HIGH);
+  digitalWrite(SEG_D, HIGH);
+  digitalWrite(SEG_E, HIGH);
+  digitalWrite(SEG_F, HIGH);
+  digitalWrite(SEG_G, HIGH);
+}
+
+</code>
+    </pre>
+    <video src="SoilMoisture.mp4" controls></video>
+    <p class="objective">
+      Key Features:
+      <ul>
+        <li>Real-time moisture percentage display on a seven-segment LED.</li>
+        <li>Threshold adjustment for moisture detection using a 10k ohm potentiometer.</li>
+        <li>Visual feedback with a red LED for threshold crossing.</li>
+        <li>Accurate and responsive moisture level detection using the SEN 13322 Soil Moisture Sensor.</li>
+        <li>Compact design powered by the ESP8266 microcontroller, ensuring compatibility with IoT setups.</li>
+      </ul>
+    </p>
+
+    <a href="index.html">Back to Portfolio</a>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 My Portfolio. All Rights Reserved by Shubham Bisain.</p>
+  </footer>
+</body>
+</html>

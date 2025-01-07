@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TempTrack Details</title>
+  <link rel="stylesheet" href="style2.css">
+</head>
+
+  <body>
+  <div class="container">
+    <h1>RTC Clock: Detailed Overview</h1>
+    
+    <p class="objective">
+      Project Overview:
+    </p>
+
+    <p>
+      This project demonstrates a WiFi-connected smart clock with an OLED display, capable of displaying both analog and digital clocks. It combines network time synchronization (NTP), real-time local timezone adjustment, and a sleek graphical user interface (UI) for time visualization. It adjusts it for the local timezone, and offers a smooth graphical user interface (GUI) for an interactive display.
+    </p>
+    <p>
+      It can display in two modes-
+    </p>
+
+    <p>
+      1. Analog Clock: A graphical representation of time with hour, minute, and second hands.
+    </p>
+
+    <p>
+      2. Digital Clock: A text-based representation of time alongside the current date in HH:MM:SS format (12-hour clock with AM/PM)
+    </p>
+  
+  
+    <p class="objective">
+      Components Used:
+    </p>
+
+    <p>
+       1.  ESP 8266:
+
+
+    </p>
+
+    <p>
+      2. SSD1306 OLED display (I2C: 0x3C address).
+    </p>
+
+    <p class="objective">
+      Arduino Code:
+    </p>
+
+    <pre>
+  <code>
+    #include &lt;Time.h&gt;
+    #include &lt;TimeLib.h&gt;  //handling realtime operations
+    #include &lt;Timezone.h&gt;
+    #include &lt;NTPClient.h&gt;   //Fetches time from the NTP server.
+    #include &lt;ESP8266WiFi.h&gt;
+    #include &lt;WiFiUdp.h&gt;
+    #include &lt;SSD1306Wire.h&gt; 
+    #include &lt;OLEDDisplayUi.h&gt; // UI library, Manage the OLED display and GUI rendering.
+    
+    #define NTP_OFFSET 0  // UTC time
+    #define NTP_INTERVAL 60 * 1000  // 1-minute update interval
+    #define NTP_ADDRESS "pool.ntp.org"
+    
+    WiFiUDP ntpUDP;
+    NTPClient timeClient(ntpUDP, NTP_ADDRESS, NTP_OFFSET, NTP_INTERVAL);
+    
+    SSD1306Wire display(0x3c, 12, 14); // OLED address and pins
+    OLEDDisplayUi ui(&display);
+    
+    const char* SSID = "Shubhh";
+    const char* Pass = "mekoiyesageetgau";
+    
+    const char* days[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+    const char* months[] = {"Jan", "Feb", "Mar", "Apr", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    const char* ampm[] = {"AM", "PM"};
+    
+    // Clock UI configuration
+    int screenW = 128;
+    int screenH = 64;
+    int clockCenterX = screenW / 2;
+    int clockCenterY = ((screenH - 16) / 2) + 16; // Center offset due to OLED display size
+    int clockRadius = 23;
+    
+    // Function to ensure leading zero in time
+    String twoDigits(int digits) {
+      return digits < 10 ? "0" + String(digits) : String(digits);
+    }
+    
+    // Analog Clock Frame
+    void analogClockFrame(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+      // Draw clock face
+      display->drawCircle(clockCenterX + x, clockCenterY + y, clockRadius);
+      display->drawCircle(clockCenterX + x, clockCenterY + y, 2); // Inner circle
+    
+      // Draw hour ticks
+      for (int z = 0; z < 360; z += 30) {
+        float angle = z / 57.29577951; // Convert degrees to radians
+        int x1 = clockCenterX + sin(angle) * clockRadius;
+        int y1 = clockCenterY - cos(angle) * clockRadius;
+        int x2 = clockCenterX + sin(angle) * (clockRadius - 4);
+        int y2 = clockCenterY - cos(angle) * (clockRadius - 4);
+        display->drawLine(x1 + x, y1 + y, x2 + x, y2 + y);
+      }
+    
+      // Get time
+      timeClient.update();
+      unsigned long epochTime = timeClient.getEpochTime();
+      TimeChangeRule cetSTD = {"CET", Last, Sun, Oct, 3, 60};
+      TimeChangeRule cestDST = {"CEST", Last, Sun, Mar, 2, 120};
+      Timezone europeCET(cestDST, cetSTD);
+      time_t local = europeCET.toLocal(epochTime);
+    
+      // Hour hand
+      float hourAngle = (hour(local) % 12 + minute(local) / 60.0) * 30 / 57.29577951;
+      int xH = clockCenterX + sin(hourAngle) * (clockRadius - clockRadius / 2);
+      int yH = clockCenterY - cos(hourAngle) * (clockRadius - clockRadius / 2);
+      display->drawLine(clockCenterX + x, clockCenterY + y, xH + x, yH + y);
+    
+      // Minute hand
+      float minuteAngle = (minute(local) + second(local) / 60.0) * 6 / 57.29577951;
+      int xM = clockCenterX + sin(minuteAngle) * (clockRadius - clockRadius / 4);
+      int yM = clockCenterY - cos(minuteAngle) * (clockRadius - clockRadius / 4);
+      display->drawLine(clockCenterX + x, clockCenterY + y, xM + x, yM + y);
+    
+      // Second hand
+      float secondAngle = second(local) * 6 / 57.29577951;
+      int xS = clockCenterX + sin(secondAngle) * (clockRadius - clockRadius / 5);
+      int yS = clockCenterY - cos(secondAngle) * (clockRadius - clockRadius / 5);
+      display->drawLine(clockCenterX + x, clockCenterY + y, xS + x, yS + y);
+    }
+    
+    // Digital Clock Frame
+    void digitalClockFrame(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16_t y) {
+      timeClient.update();
+      unsigned long epochTime = timeClient.getEpochTime();
+      TimeChangeRule cetSTD = {"CET", Last, Sun, Oct, 3, 60};
+      TimeChangeRule cestDST = {"CEST", Last, Sun, Mar, 2, 120};
+      Timezone europeCET(cestDST, cetSTD);
+      time_t local = europeCET.toLocal(epochTime);
+    
+      String timeString = String(hourFormat12(local)) + ":" + twoDigits(minute(local)) + ":" + twoDigits(second(local)) + " " + ampm[isPM(local)];
+      String dateString = String(days[weekday(local) - 1]) + ", " + months[month(local) - 1] + " " + day(local) + ", " + year(local);
+    
+      display->setTextAlignment(TEXT_ALIGN_CENTER);
+      display->setFont(ArialMT_Plain_24);
+      display->drawString(clockCenterX + x, clockCenterY - 10 + y, timeString);
+      display->setFont(ArialMT_Plain_10);
+      display->drawString(clockCenterX - x, clockCenterY - 20 + y, dateString);
+    }
+    
+    // UI Configuration
+    FrameCallback frames[] = {analogClockFrame, digitalClockFrame};
+    int frameCount = 2;
+    
+    void setup() {
+      Serial.begin(115200);
+      WiFi.begin(SSID, Pass);
+    
+      while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+      }
+      Serial.println("\nWiFi connected!");
+      Serial.print("IP Address: ");
+      Serial.println(WiFi.localIP());
+    
+      display.init();
+      display.flipScreenVertically();
+    
+      ui.setTargetFPS(60);
+      ui.setFrames(frames, frameCount);
+      ui.setFrameAnimation(SLIDE_RIGHT);
+    
+      ui.init();
+    }
+    
+    void loop() {
+      int remainingTimeBudget = ui.update();
+    
+      if (remainingTimeBudget > 0) {
+        delay(remainingTimeBudget);
+      }
+    }
+    
+</code>
+    </pre>
+    <video src="rtcClock.mp4" controls></video>
+    
+    <p class="objective">
+      Key Features:
+      <ul>
+        <li>Real-Time Synchronization: Ensures the time is always accurate by syncing with the NTP server.</li>
+        <li>Dual Display Modes: Users can switch between analog and digital clock visualizations.</li>
+        <li>modify for additional features like alarms, weather updates, or custom animations.</li>
+        <li>Leverages NTP and automatic synchronization for precise timekeeping</li>
+        <li>Interfaces with an SSD1306 OLED display (128x64 resolution) via the I2C protocol.</li>
+      </ul>
+    </p>
+
+    <a href="index.html">Back to Portfolio</a>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 My Portfolio. All Rights Reserved by Shubham Bisain.</p>
+  </footer>
+</body>
+</html>

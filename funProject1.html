@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ludo Dice Arm Details</title>
+  <link rel="stylesheet" href="style2.css">
+</head>
+
+  <body>
+  <div class="container">
+    <h1>Ludo Dice Arm: Detailed Overview</h1>
+    
+    <p class="objective">
+      Project Overview:
+    </p>
+
+    <p>
+      The Ludo Dice Arm is an entertaining project designed to automate dice rolls for playing Ludo. The project uses a servo motor controlled by an ESP8266 microcontroller to simulate the movement of an arm that taps a touchscreen (on a smartphone) to roll the dice. The servo motor rotates between 0° and 90° in a back-and-forth motion with a 1-second pause,the action perform pressing the dice roll button in Ludo apps.
+    </p>
+  
+    <p class="objective">
+      Components Used:
+    </p>
+
+    <p>
+        1. ESP 8266 mini microcontoller: Obtional could Provides Wi-Fi capabilities, which could be extended for remote control or monitoring.
+
+    </p>
+
+    <p>
+      2.servo motor: for the rotation of arm 0 to 90 degrees
+
+    <p>
+        3. Stylus to press the touch screen 
+    </p>
+
+    <p>
+      4. A touch smartphone
+    </p>
+
+    <p class="objective">
+      Arduino Code:
+    </p>
+
+  <pre>
+  <code>
+  #include &lt;Servo.h&gt;
+
+    // Define servo object
+    Servo myServo;
+    
+    // Define servo pin
+    const int servoPin = D5; // Connect your servo's signal wire to this pin (can be GPIO14 or any PWM-enabled pin)
+    
+    // define Variables
+    int angle = 0; // Current angle of the servo
+    
+    void setup() {
+      // Initialize servo
+      myServo.attach(servoPin);
+      
+      // Set the initial position to 0 deg degrees
+      myServo.write(angle);
+      delay(500);
+    }
+    
+    void loop() {
+      // Rotate servo from 0 to 900 degrees
+      for (angle = 0; angle <= 90; angle++) {
+        myServo.write(angle);   // Set servo position
+        delay(15);              // Wait for the servo to reach the position
+      }
+    
+      delay(1000); // Pause for 1 second at 90 degrees
+    
+      // Rotate servo from 90 back to 0 degrees
+      for (angle = 90; angle >= 0; angle--) {
+        myServo.write(angle);   // Set servo position
+        delay(15);              // Wait for the servo to reach the position
+      }
+    
+      delay(1000); // Pause for 1 second at 0 degrees
+    }
+    
+    </code>
+    </pre>
+    <video src="ludoServo.mp4" controls></video>
+    <p class="objective">
+      Key Features:
+      <ul>
+        <li>Automated Dice Rolling: Mimics human interaction by tapping the dice button in Ludo apps.</li>
+        <li> Could be expanded to include remote control or IoT features, making it more versatile.</li>
+      </ul>
+    </p>
+
+    <a href="index.html">Back to Portfolio</a>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 My Portfolio. All Rights Reserved by Shubham Bisain.</p>
+  </footer>
+</body>
+</html>

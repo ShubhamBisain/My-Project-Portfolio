@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TempTrack Details</title>
+  <link rel="stylesheet" href="style2.css">
+</head>
+
+  <body>
+  <div class="container">
+    <h1>TempTrack: Detailed Overview</h1>
+    
+    <p class="objective">
+      Project Overview:
+    </p>
+
+    <p>
+      This project began as a hobby, and over time, it has proven to be an incredibly useful tool for maintaining a stable room temperature. By combining a temperature sensor, microcontroller, and IoT platform, I’ve created a device that provides real-time temperature monitoring from anywhere.
+    </p>
+
+    <p class="objective">
+      Components in Use:
+    </p>
+
+    <p>
+        1. DS18B20 Temperature Sensor: The DS18B20 is a highly reliable digital temperature sensor with a wide measurement range from -55°C to 125°C (-67°F to 267°F), with an accuracy of ±0.5°C between -10°C and 85°C. It is ideal for various applications such as home automation and temperature regulation.
+    </p>
+
+    <p>
+      2. 1K Ohm Pull-up Resistor: A 1K Ohm pull-up resistor is used to stabilize the signal line from the DS18B20 sensor to ensure reliable data transmission
+    </p>
+
+    <p>
+        3. ESP8266 (with 0.96" OLED Display): The ESP8266 serves as the brain of the system, acting as a microcontroller that connects the temperature sensor to the internet via Wi-Fi. The integrated 0.96-inch OLED display provides real-time feedback directly from the device. 
+    </p>
+
+    <p>
+        4. Blynk IoT Platform: Blynk is an IoT platform that allows users to remotely monitor and control their devices via the internet. In this project, Blynk is used to send temperature data from the device to the Blynk app on a smartphone, making it possible to track the temperature from anywhere.
+    </p>
+
+    <p class="objective">
+      Arduino Code:
+    </p>
+
+    <pre>
+<code>
+#define BLYNK_TEMPLATE_ID "my blynk ID"
+#define BLYNK_TEMPLATE_NAME "Temperature Reading"
+#define BLYNK_AUTH_TOKEN "my blynk token"
+
+#include &lt;WiFi.h&gt;
+#include &lt;OneWire.h&gt;
+#include &lt;DallasTemperature.h&gt;
+#include "SSD1306Wire.h"        //lib for display
+#include &lt;BlynkSimpleEsp32.h&gt;
+
+// Data wire is connected to GPIO 4
+#define ONE_WIRE_BUS 5
+
+SSD1306Wire display(0x3c, 12, 14);
+
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(ONE_WIRE_BUS);
+
+// PassoneWire reference to Dallas Temperature sensor
+DallasTemperature sensors(&oneWire);
+
+const char* auth = BLYNK_AUTH_TOKEN;
+const char* ssid = "my wifi name";
+const char* password = "Password for wifi with connected internet";
+int x = 1;
+
+void setup() {
+  // Serial port for debugging purposes
+  Serial.begin(115200);
+  Serial.println();
+
+  // Start up DS18B20 library for 0.96 inch OLED
+  display.init();
+  display.setContrast(255);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.display();    //to print display
+  delay(200);
+
+  sensors.begin();
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting to WiFi");
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(10, 10, "Connecting to WiFi");
+  display.display();
+
+  //when wifi is connected it move to the next step
+  while (WiFi.status() != WL_CONNECTED && x == 10) {
+    delay(500);
+    Serial.print(".");
+    display.drawString(10 + x, 20, ".");
+    display.display();
+    x++;
+  }
+  delay(100);
+  Serial.println();
+  Serial.println("Connected to WiFi");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());   //print local IP address of device on Serial monitor
+  display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(10, 5, "WiFi Connected ;)");
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(10, 25, "IP address: ");
+  display.drawString(10, 36, WiFi.localIP().toString());
+  display.display();
+  delay(1000);
+
+  delay(200);
+
+  // Initialize temperature sensor
+  sensors.begin();
+
+  // Connect to Wi-Fi and Blynk
+  Blynk.begin(auth, ssid, password);
+  Serial.println("Connected to Blynk");
+  display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_16);
+  display.drawString(10, 20, "Connected to Blynk :)");
+}
+
+void loop() {
+  //check if wifi is connected
+  if (WiFi.status() == WL_CONNECTED){
+    delay(100);
+    display.clear();
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.setFont(ArialMT_Plain_10);
+    display.drawString(100, 0,"WL:)");
+    temp();
+    delay(500);
+
+  } else {
+    //it won't communicate with blynk rather just print on the OLED display
+    delay(100);
+    display.clear();
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.setFont(ArialMT_Plain_10);
+    display.drawString(90, 0,"No WL:(");
+    temp();
+    delay(500);
+  }
+  
+  delay(10000); // after each 10 seconds re-check the values
+}
+
+void temp(){
+   display.setFont(ArialMT_Plain_10);
+   display.drawString(20, 50, "Room Temp:)");
+   display.setFont(ArialMT_Plain_16);
+   display.drawString(0, 8, "TempC:");
+   display.setFont(ArialMT_Plain_16);
+   display.drawString(0, 25, "TempF:");
+  
+   //request latest temperature readings
+   sensors.requestTemperatures();
+   float tempC = sensors.getTempCByIndex(0);  // Celsius temperature
+   if (tempC == -127.00) {
+     display.clear();
+     Serial.println("Unable to read temperature from sensor.");
+     display.setFont(ArialMT_Plain_24);
+     display.drawString(20,60,"Error Sensor");
+     display.display();
+   } else {
+     Serial.print("Temperature in Celsius: ");
+     Serial.println(tempC);
+     Blynk.virtualWrite(V0, tempC);    // Send temperature data to Blynk app
+     display.setFont(ArialMT_Plain_16);
+     display.drawString(60,8, String(tempC));
+     display.display();
+   }
+
+   float tempF = sensors.getTempFByIndex(0);  // Fahrenheit temperature
+
+   if (int(tempF) == -196) {
+     Serial.println("Unable to read temperature from sensor.");
+     display.setFont(ArialMT_Plain_24);
+     display.drawString(20,60,"Error Sensor");
+     display.display();
+   } else {
+     Serial.print("Temperature in Fahrenheit: ");
+     Serial.println(tempF);
+     Blynk.virtualWrite(V1, tempF);  // Send temperature data to Blynk app
+     display.setFont(ArialMT_Plain_16);
+     display.drawString(60,25, String(tempF));
+     display.display();
+   }
+}
+</code>
+    </pre>
+    <video src="tempSensor.mp4" controls></video>
+    <p class="objective">
+      Key Features:
+      <ul>
+        <li>Real-Time Temperature Monitoring</li>
+        <li>Wi-Fi Connectivity</li>
+        <li>Local Display Interface</li>
+        <li>Remote Access via Blynk App</li>
+        <li>Error Detection and Feedback</li>
+        <li>Automated Updates</li>
+        <li>Local Screen OLED</li>
+        <li>Remote Access via Blynk App</li>
+      </ul>
+    </p>
+
+    <a href="index.html">Back to Portfolio</a>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 My Portfolio. All Rights Reserved by Shubham Bisain.</p>
+  </footer>
+</body>
+</html>

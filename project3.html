@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TempTrack Details</title>
+  <link rel="stylesheet" href="style2.css">
+</head>
+
+  <body>
+  <div class="container">
+    <h1>Internet Radio: Detailed Overview</h1>
+    
+    <p class="objective">
+      Project Overview:
+    </p>
+
+    <p>
+      This Internet Radio device utilizes the ESP32 microcontroller to stream online radio channels using Wi-Fi and outputs audio via an I2S amplifier (MAX98357A). It supports up to 9 preset channels with room for expansion. Users can navigate channels and adjust volume using four push buttons. Additionally, the device retains the last selected channel and volume settings via EEPROM, ensuring continuity after restarts.
+      
+    </p>
+  
+    <p class="objective">
+      Components Used:
+    </p>
+
+    <p>
+        1. ESP 32 (38 pin microcontroller): The core microcontroller enabling Wi-Fi connectivity and controlling the audio and user inputs.
+
+
+    </p>
+
+    <p>
+      2.MAX98357A DAC & Amplifier: Converts the digital audio stream to an analog signal and amplifies it for speaker output. 
+    </p>
+
+    <p>
+        3.Four Push Buttons:
+        Two buttons for channel navigation (up/down), and
+        Two buttons for volume control (increase/decrease).
+    </p>
+
+    <p>
+      4. Two Speakers (4 ohm, 3W): Provides clear audio output.
+    </p>
+
+    <p>
+      5. EEPROM: Stores the last channel and volume settings for persistence after restarts.
+    </p>
+
+    <p>
+      6. 1K Ohm Pull-Up Resistors: Stabilizes button inputs to avoid noise.
+    </p>
+
+    <p>
+      7. I2S Interface Pins: Enables audio data transfer to the amplifier.
+    </p>
+
+    <p>
+      7. Motion sensor: Alternatively I have used a motion sensor for this project as well to play the radio for a duration of 60 sec as soon any motion is detected and it automatically gets odd when there is no motion in the further detection after 60 seconds.
+    </p>
+
+    <p class="objective">
+      Arduino Code:
+    </p>
+
+    <pre>
+<code>
+  #include "WiFi.h"
+  #include "Audio.h"
+  #include <EEPROM.h>
+  
+  // Replace with your network credentials
+  const char* ssid = "ssid";
+  const char* password = "password";
+  
+  // I2S pins for MAX98357
+  #define I2S_BCK 27
+  #define I2S_LRC 26
+  #define I2S_DOUT 25
+  
+  #define volH 19   //volume UP
+  #define volL 18   //volume dowm
+  #define ch1 23    //Channel UP
+  #define ch2 22    //channel down
+  
+  Audio audio;
+  
+  // EEPROM size and addresses
+  #define EEPROM_SIZE 2
+  #define VOL_ADDR 0
+  #define CH_ADDR 1
+  
+  // Debouncing Parameters
+  const unsigned long debounceDelay = 50;
+  unsigned long lastDebounceTimeVolH = 0;
+  unsigned long lastDebounceTimeVolL = 0;
+  unsigned long lastDebounceTimeCh1 = 0;
+  unsigned long lastDebounceTimeCh2 = 0;
+  
+  // Last button states
+  int lastButtonStateVolH = HIGH;
+  int lastButtonStateVolL = HIGH;
+  int lastButtonStateCh1 = HIGH;
+  int lastButtonStateCh2 = HIGH;
+  
+  // Volume and Channel variables
+  int vol = 20, ch = 1;
+  
+  // Radio station URLs
+  const char* add[] = {
+      "http://icecast.ndr.de/ndr/ndr2/niedersachsen/mp3/128/stream.mp3",
+      "http://icecast.ndr.de/ndr/ndr1niedersachsen/hannover/mp3/128/stream.mp3",
+      "http://wdr-cosmo-live.iceCast.wdr.de/wdr/cosmo/live/mp3/128/stream.mp3",
+      "http://mp3.ffh.de/radioffh/hqlivestream.mp3",
+      "http://rnrw.cast.addradio.de/rnrw-0182/deinschlager/low/Stream.mp3",
+      "http://icecast.ndr.de/ndr/ndr1niedersachsen/hannover/mp3/128/stream.mp3",
+      "http://wdr-cosmo-live.iceCast.wdr.de/wdr/cosmo/live/mp3/128/stream.mp3",
+      "http://icecast.omroep.nl/3fm-bb-mp3",
+      "https://media-ice.musicradio.com/BigTop40"
+  };
+  
+  // Function prototypes
+  void chNum(int ch);
+  
+  void setup() {
+      Serial.begin(115200);
+  
+      // Initialize EEPROM
+      EEPROM.begin(EEPROM_SIZE);
+  
+      // Read saved values
+      vol = EEPROM.read(VOL_ADDR);
+      ch = EEPROM.read(CH_ADDR);
+      if (vol > 21) vol = 20;  // Ensure valid volume range
+      if (ch < 1 || ch > 9) ch = 1;  // Ensure valid channel range
+  
+      // Connect to Wi-Fi
+      WiFi.begin(ssid, password);
+      Serial.print("Connecting to Wi-Fi...");
+      while (WiFi.status() != WL_CONNECTED) {
+          delay(500);
+          Serial.print(".");
+      }
+      Serial.println("\nConnected to Wi-Fi");
+  
+      // Initialize the audio object
+      audio.setPinout(I2S_BCK, I2S_LRC, I2S_DOUT);
+      audio.setVolume(vol); // Initialize volume
+      chNum(ch); // Initialize channel
+  
+      pinMode(volH, INPUT_PULLUP);
+      pinMode(volL, INPUT_PULLUP);
+      pinMode(ch1, INPUT_PULLUP);
+      pinMode(ch2, INPUT_PULLUP);
+  }
+  
+  void updateVolume() {
+      int readingVolH = digitalRead(volH);
+      int readingVolL = digitalRead(volL);
+  
+      // Volume up button
+      if (readingVolH == LOW && lastButtonStateVolH == HIGH && millis() - lastDebounceTimeVolH > debounceDelay) {
+          lastDebounceTimeVolH = millis();
+          if (vol < 21) vol += 3;
+          Serial.printf("Volume: %d\n", vol);
+          audio.setVolume(vol);
+          EEPROM.write(VOL_ADDR, vol); // Save to EEPROM
+          EEPROM.commit();
+      }
+      lastButtonStateVolH = readingVolH;
+  
+      // Volume down button
+      if (readingVolL == LOW && lastButtonStateVolL == HIGH && millis() - lastDebounceTimeVolL > debounceDelay) {
+          lastDebounceTimeVolL = millis();
+          if (vol > 0) vol -= 3;
+          Serial.printf("Volume: %d\n", vol);
+          audio.setVolume(vol);
+          EEPROM.write(VOL_ADDR, vol); // Save to EEPROM
+          EEPROM.commit();
+      }
+      lastButtonStateVolL = readingVolL;
+  }
+  
+  void updateChannel() {
+      int readingCh1 = digitalRead(ch1);
+      int readingCh2 = digitalRead(ch2);
+  
+      // Handle Channel up button (ch1)
+      if (readingCh1 == LOW && lastButtonStateCh1 == HIGH && millis() - lastDebounceTimeCh1 > debounceDelay) {
+          lastDebounceTimeCh1 = millis();
+          if (ch < 9) ch++;
+          Serial.printf("Channel: %d\n", ch);
+          chNum(ch);
+          EEPROM.write(CH_ADDR, ch); // Save to EEPROM
+          EEPROM.commit();
+      }
+      lastButtonStateCh1 = readingCh1;
+  
+      // Handle Channel down button (ch2)
+      if (readingCh2 == LOW && lastButtonStateCh2 == HIGH && millis() - lastDebounceTimeCh2 > debounceDelay) {
+          lastDebounceTimeCh2 = millis();
+          if (ch > 1) ch--;
+          Serial.printf("Channel: %d\n", ch);
+          chNum(ch);
+          EEPROM.write(CH_ADDR, ch); // Save to EEPROM
+          EEPROM.commit();
+      }
+      lastButtonStateCh2 = readingCh2;
+  }
+  
+  void chNum(int chh) {
+      if (chh >= 1 && chh <= 9) {
+          audio.connecttohost(add[chh - 1]);
+      }
+  }
+  
+  void loop() {
+      updateVolume();
+      updateChannel();
+      audio.loop(); // Process audio stream
+  }
+  
+  
+</code>
+    </pre>
+    <video src="internetRadio.mp4" controls></video>
+    <p class="objective">
+      Key Features:
+      <ul>
+        <li>EEPROM Management:
+            Saves volume and channel settings to EEPROM upon updates and restores these settings during device initialization.</li>
+        <li>I2S Communication:
+          Configures ESP32's I2S interface to transmit audio data to the MAX98357A DAC/amplifier.</li>
+        <li>Push Button Debouncing</li>
+        <li>Audio Management: Volume and Channel</li>
+      </ul>
+    </p>
+
+    <p class="objective">Alternatively I have used a motion sensor along with the same project to play the ratio for the duration of 60 seconds as soon as a motion is detected.</p>
+
+    <video src="internetRadio2.mp4" controls></video>
+
+    <a href="index.html">Back to Portfolio</a>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 My Portfolio. All Rights Reserved by Shubham Bisain.</p>
+  </footer>
+</body>
+</html>

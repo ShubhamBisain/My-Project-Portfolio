@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TempTrack Details</title>
+  <link rel="stylesheet" href="style2.css">
+</head>
+
+  <body>
+  <div class="container">
+    <h1>RC car Obsticle detection: Detailed Overview</h1>
+    
+    <p class="objective">
+      Project Overview:
+    </p>
+
+    <p>
+      This project objective is to work on a autonomous RC car powered by an ESP32 microcontroller, featuring obsticle detection (Using the ultrasonic sensor, it measures distances and determines if obstacles are within the set threshold (30 cm)) and navigation using a servo motor and an ultrosonic sensor. The car is meant to scan its surroundings, detect obsticles, and intelligently maneuver towards the clearestpath by comparing distances on the left, right and forward directions. The initial servo position is set to 90° (forward), 0° represent left, and 180° representing right. The car can also be extended to include IoT functionality with Blynk, thinkspeak or any other IoT software or the car can be controlled via transmitter-receiver setups for manual control.
+    </p>
+  
+    <p class="objective">
+      Components Used:
+    </p>
+
+    <p>
+        1. ESP 32 (38 pin microcontroller): The brain of the project, handling obstacle detection, servo control, and motor driving.
+
+
+    </p>
+
+    <p>
+      2.L298N Motor driver controller board: Powers and controls four DC motors independently, enabling forward, backward, left, and right motion, Ensures smooth operation of motors with adjustable speed.
+    </p>
+
+    <p>
+        3. Four dc motor 
+    </p>
+
+    <p>
+      4. 7.4V to 12V Battery: Though currently not in use, a battery can be added to provide sufficient power for high-load components, though I am still seeking for the availability so the demostration is using the powerbank of 5v with individual components.
+    </p>
+
+    <p>
+      5. Ultrasonic Sensor (HC-SR04): Detects obstacles and measures distance within the 0–180° range.
+    </p>
+
+    <p>
+      6. Servo Motor: Rotates the ultrasonic sensor to scan for open paths (allow a scan from 0° to 180°).
+    </p>
+
+    <p>
+      7. Blynk IoT Integration (Optional): Enables remote control through IoT apps. Alternatively, a transmitter-receiver setup can be used.
+    </p>
+
+    <p>
+      8. Chassis with four Wheels: Provides structure and mobility for the RC car.
+    </p>
+
+    <p class="objective">
+      Arduino Code:
+    </p>
+
+    <pre>
+<code>
+  #include &lt;ESP32Servo.h&gt;
+    #include &lt;NewPing.h&gt;
+    
+    // Pin Definitions
+    #define SERVO_PIN  13          // GPIO13 for Servo motor
+    #define TRIG_PIN   14          // Trigger pin for Ultrasonic sensor (GPIO14)
+    #define ECHO_PIN   27          // Echo pin for Ultrasonic sensor (GPIO27)
+    
+    #define MOTOR1  16             // Motor control pins
+    #define MOTOR2  17
+    #define MOTOR3  18
+    #define MOTOR4  19
+    #define ENA     5              // PWM pin for Motor A speed
+    #define ENB     4              // PWM pin for Motor B speed
+    
+    // Constants
+    const int motorSpeed = 230;        // Speed for the motors (0-255)
+    const int freq = 5000;             // PWM Frequency
+    const int resolution = 8;          // PWM Resolution (8-bit)
+    const int pwmChannelA = 0;
+    const int pwmChannelB = 1;
+    const int distanceThreshold = 30;  // Obstacle detection threshold in cm
+    const int scanDelay = 200;         // Delay during servo scan (ms)
+    
+    // Variables
+    int recordedDistance = 0;
+    int closestAngle = 90;             // Default to straight ahead
+    
+    // Object Initialization
+    NewPing mySensor(TRIG_PIN, ECHO_PIN, 400);
+    Servo myServo;
+    
+    void setup() {
+      // Motor pins as OUTPUT
+      pinMode(MOTOR1, OUTPUT);
+      pinMode(MOTOR2, OUTPUT);
+      pinMode(MOTOR3, OUTPUT);
+      pinMode(MOTOR4, OUTPUT);
+    
+      // PWM setup for motor speed
+      ledcSetup(pwmChannelA, freq, resolution);
+      ledcSetup(pwmChannelB, freq, resolution);
+      ledcAttachPin(ENA, pwmChannelA);
+      ledcAttachPin(ENB, pwmChannelB);
+    
+      setMotorSpeed(motorSpeed);
+    
+      // Initialize servo
+      myServo.attach(SERVO_PIN);
+      myServo.write(90);  // Center position (initial)
+    
+      Serial.begin(115200);
+      Serial.println("ESP32 Object Avoidance Robot Initialized");
+      delay(2000);
+    }
+    
+    void loop() {
+      moveForward();
+      delay(200);
+    
+      int distance = mySensor.ping_cm();
+    
+      // If obstacle is detected within the threshold distance
+      if (distance > 0 && distance < distanceThreshold) {
+        Serial.println("Obstacle Detected! Stopping motors...");
+        stopMotors();
+    
+        // Scan for the clearest path
+        closestAngle = scanForClearPath();
+    
+        // Decide direction based on closest angle
+        if (closestAngle < 90) {
+          turnLeft();
+        } else if (closestAngle > 90) {
+          turnRight();
+        } else {
+          // Move forward if no clear turning direction
+          moveForward();
+        }
+    
+        myServo.write(90);  // Reset servo to center position
+        delay(500);         // Give time for the motors to stabilize
+      }
+    }
+    
+    // Function to scan for the clearest path
+    int scanForClearPath() {
+      recordedDistance = 0;
+      int bestAngle = 90;  // Default to straight ahead
+    
+      for (int angle = 0; angle <= 180; angle += 30) {
+        myServo.write(angle);         // Move servo to angle
+        delay(scanDelay);             // Wait for servo to settle
+        int currentDistance = mySensor.ping_cm();  // Measure distance
+    
+        Serial.printf("Angle: %d°, Distance: %d cm\n", angle, currentDistance);
+    
+        // Record the angle with the farthest distance
+        if (currentDistance > recordedDistance) {
+          recordedDistance = currentDistance;
+          bestAngle = angle;
+        }
+      }
+      return bestAngle;
+    }
+    
+    // Motor control functions
+    void moveForward() {
+      setMotorState(HIGH, LOW, HIGH, LOW);
+      Serial.println("Moving Forward...");
+    }
+    
+    void turnLeft() {
+      Serial.println("Turning Left...");
+      setMotorState(LOW, HIGH, HIGH, LOW);
+      delay(1000);
+      stopMotors();
+    }
+    
+    void turnRight() {
+      Serial.println("Turning Right...");
+      setMotorState(HIGH, LOW, LOW, HIGH);
+      delay(1000);
+      stopMotors();
+    }
+    
+    void stopMotors() {
+      setMotorState(LOW, LOW, LOW, LOW);
+      Serial.println("Motors Stopped");
+    }
+    
+    // Helper function to set motor states
+    void setMotorState(int m1, int m2, int m3, int m4) {
+      digitalWrite(MOTOR1, m1);
+      digitalWrite(MOTOR2, m2);
+      digitalWrite(MOTOR3, m3);
+      digitalWrite(MOTOR4, m4);
+    }
+    
+    // Helper function to set motor speed
+    void setMotorSpeed(int speed) {
+      ledcWrite(pwmChannelA, speed);
+      ledcWrite(pwmChannelB, speed);
+    } 
+</code>
+    </pre>
+    <video src="RC CAR1.mp4" controls></video>
+    <p class="objective">Servo Motor:</p>
+    <video src="RC CAR2.mp4" controls></video>
+    <p class="objective">
+      Key Features:
+      <ul>
+        <li>Debugging Logs: Serial monitor outputs provide real-time feedback on angle, distance, and motor states.</li>
+        <li>Smart scanning using servo Motor</li>
+        <li>Modular Design: Can be extended to include IoT control (e.g., Blynk app, thinkspeak, etc) or remote control via transmitter-receiver.</li>
+        <li>Designed with a simple chassis and four wheels for practical mobility.</li>
+      </ul>
+    </p>
+
+    <a href="index.html">Back to Portfolio</a>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 My Portfolio. All Rights Reserved by Shubham Bisain.</p>
+  </footer>
+</body>
+</html>
